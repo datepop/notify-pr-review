@@ -20,15 +20,34 @@ GitHub Pull Request가 생성되면 Slack 채널에 자동으로 알림을 보�
 
 ### 1. Slack Bot 설정
 
-자세한 가이드: [SLACK_SETUP.md](./SLACK_SETUP.md)
+#### 1-1. Slack App 생성
 
-1. [Slack API Dashboard](https://api.slack.com/apps)에서 새 앱 생성
-2. 다음 Bot Token Scopes 추가:
-   - `chat:write`
-   - `users:read`
-   - `users:read.email`
-3. 워크스페이스에 앱 설치 후 Bot Token 복사
-4. 알림 받을 채널에 Bot 초대: `/invite @YourBotName`
+1. [Slack API Dashboard](https://api.slack.com/apps)에 접속
+2. **"Create New App"** → **"From scratch"** 선택
+3. App 이름 입력 (예: `PR Review Notifier`)
+4. 워크스페이스 선택 후 생성
+
+#### 1-2. Bot Token Scopes 추가
+
+**OAuth & Permissions** 메뉴에서 다음 권한 추가:
+
+| Scope | 용도 |
+|-------|------|
+| `chat:write` | Slack 채널에 메시지 전송 |
+| `users:read` | 사용자 정보 조회 |
+| `users:read.email` | 이메일로 사용자 검색 (매핑용) |
+
+#### 1-3. 워크스페이스에 설치
+
+1. **"Install to Workspace"** 클릭
+2. **Bot User OAuth Token** 복사 (형식: `xoxb-...`)
+   - ⚠️ 이 토큰은 절대 공개하지 마세요!
+
+#### 1-4. 채널에 Bot 초대
+
+```
+/invite @PR Review Notifier
+```
 
 ### 2. GitHub Secrets 설정
 
@@ -216,7 +235,6 @@ notify-pr-review/
 │   ├── pr-notify-config.example.yml  # 설정 예제
 │   └── workflows/
 │       └── example.yml   # 워크플로우 예제
-├── SLACK_SETUP.md        # Slack Bot 설정 가이드
 └── README.md
 ```
 
