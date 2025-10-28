@@ -1,0 +1,24 @@
+{
+  "name": "notify-pr-review",
+  "version": "1.0.0",
+  "description": "GitHub Action to send PR review notifications to Slack with email-based user mapping",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "github-action",
+    "slack",
+    "pull-request",
+    "code-review",
+    "notification"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@actions/core": "^1.10.1",
+    "@actions/github": "^6.0.0",
+    "@slack/web-api": "^7.0.0",
+    "js-yaml": "^4.1.0"
+  }
+}

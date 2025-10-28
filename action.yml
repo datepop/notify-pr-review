@@ -1,0 +1,27 @@
+name: 'PR Review Slack Notifier'
+description: 'Send Slack notifications when PR is opened with email-based user mapping'
+author: 'tenfingers'
+
+branding:
+  icon: 'message-circle'
+  color: 'purple'
+
+inputs:
+  slack_bot_token:
+    description: 'Slack Bot Token (xoxb-...)'
+    required: true
+  slack_channel:
+    description: 'Slack channel to send notifications (e.g., #pr-reviews)'
+    required: true
+  github_token:
+    description: 'GitHub Token for API access'
+    required: false
+    default: ${{ github.token }}
+  config_path:
+    description: 'Path to config file with email mappings and default reviewers'
+    required: false
+    default: '.github/pr-notify-config.yml'
+
+runs:
+  using: 'node21'
+  main: 'index.js'

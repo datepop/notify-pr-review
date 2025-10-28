@@ -1,0 +1,24 @@
+# PR Review Slack Notifier Configuration Example
+# Copy this file to .github/pr-notify-config.yml and customize it
+
+# Slack channel to send notifications
+# (This can also be specified in the GitHub Action workflow)
+slack_channel: "#pr-reviews"
+
+# Email-based GitHub username to email mappings
+# Format: github-username: email@company.com
+email_mappings:
+  octocat: octocat@example.com
+  jaewon: jaewon@company.com
+  john-doe: john@company.com
+
+# Default reviewers (notified when no reviewers are assigned)
+# Use email addresses that match Slack workspace members
+default_reviewers:
+  - lead-developer@company.com
+  - tech-lead@company.com
+
+# Auto-match GitHub users to Slack by email (default: true)
+# If enabled, the action will try to find Slack users by their GitHub email
+# even if they're not in the email_mappings
+auto_match_by_email: true
