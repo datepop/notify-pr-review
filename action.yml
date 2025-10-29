@@ -1,5 +1,5 @@
 name: 'PR Review Slack Notifier'
-description: 'Send Slack notifications when PR is opened with email-based user mapping'
+description: 'Send Slack notifications for PR creation and comments with threaded replies and email-based user mapping'
 author: 'tenfingers'
 
 branding:
@@ -8,7 +8,7 @@ branding:
 
 inputs:
   slack_bot_token:
-    description: 'Slack Bot Token (xoxb-...)'
+    description: 'Slack Bot Token'
     required: true
   slack_channel:
     description: 'Slack channel to send notifications (e.g., #pr-reviews)'
@@ -23,5 +23,5 @@ inputs:
     default: '.github/pr-notify-config.yml'
 
 runs:
-  using: 'node21'
+  using: 'node24'
   main: 'index.js'

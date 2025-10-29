@@ -1,6 +1,7 @@
 const fs = require('fs');
 const yaml = require('js-yaml');
 const core = require('@actions/core');
+const userMappings = require('./user-mappings');
 
 /**
  * Load configuration from YAML file
@@ -12,7 +13,7 @@ function loadConfig(configPath) {
     if (!fs.existsSync(configPath)) {
       core.info(`Config file not found at ${configPath}, using defaults`);
       return {
-        email_mappings: {},
+        email_mappings: userMappings,
         default_reviewers: [],
         auto_match_by_email: true
       };
@@ -22,14 +23,14 @@ function loadConfig(configPath) {
     const config = yaml.load(fileContents);
 
     return {
-      email_mappings: config.email_mappings || {},
+      email_mappings: userMappings,
       default_reviewers: config.default_reviewers || [],
-      auto_match_by_email: config.auto_match_by_email !== false // default true
+      auto_match_by_email: config.auto_match_by_email !== false
     };
   } catch (error) {
     core.warning(`Failed to load config file: ${error.message}`);
     return {
-      email_mappings: {},
+      email_mappings: userMappings,
       default_reviewers: [],
       auto_match_by_email: true
     };
