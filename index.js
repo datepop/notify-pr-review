@@ -145,7 +145,6 @@ async function handleComment(slackClient, octokit, context, config, slackChannel
     core.info('First comment detected - updating status to in-review');
   }
 
-  // Update PR status if it changed (do this BEFORE checking for mentions)
   if (newStatus !== currentStatus) {
     await updatePRStatus(
       octokit,
@@ -155,7 +154,6 @@ async function handleComment(slackClient, octokit, context, config, slackChannel
       newStatus
     );
 
-    // Update the Slack message with new status
     const { data: pr } = await octokit.rest.pulls.get({
       owner: context.repo.owner,
       repo: context.repo.repo,
@@ -167,7 +165,6 @@ async function handleComment(slackClient, octokit, context, config, slackChannel
       body: pr.body
     };
 
-    // Get all reviewers for the updated message
     const allReviewers = new Set();
     if (pr.requested_reviewers && pr.requested_reviewers.length > 0) {
       pr.requested_reviewers.forEach(r => {
@@ -202,7 +199,6 @@ async function handleComment(slackClient, octokit, context, config, slackChannel
     core.info(`✅ Slack message updated with new status: ${newStatus}`);
   }
 
-  // Now handle notifications (independent of status update)
   let targetUsers = [];
 
   if (commentData.reviewState === 'approved' || commentData.reviewState === 'changes_requested') {
