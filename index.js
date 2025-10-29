@@ -161,7 +161,7 @@ async function handleComment(slackClient, octokit, context, config, slackChannel
     });
 
     const prData = {
-      ...parsePRData({ payload: { pull_request: pr } }),
+      ...parsePRData({ payload: { pull_request: pr, repository: context.payload.repository } }),
       body: pr.body
     };
 
