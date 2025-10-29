@@ -181,24 +181,36 @@ auto_match_by_email: true
 
 ## 👥 리뷰어 결정 로직
 
-PR 알림을 받을 사람은 다음 우선순위로 자동 결정됩니다:
+PR 알림을 받을 사람은 다음 로직으로 자동 결정됩니다:
 
 1. **PR Reviewers** (최우선)
-   - PR에 명시적으로 할당된 리뷰어가 있으면 사용
+   - PR에 명시적으로 할당된 리뷰어가 있으면 **오직 리뷰어에게만** 알림
 
-2. **PR Assignees** (2순위)
-   - Reviewers가 없고 Assignees가 있으면 사용
+2. **Assignees + CODEOWNERS** (2순위)
+   - Reviewers가 없으면:
+     - PR Assignees 수집
+     - CODEOWNERS 파일에서 변경된 파일의 소유자 수집
+     - **둘 다 합쳐서** 알림 (중복 제거)
 
-3. **CODEOWNERS** (3순위)
-   - Reviewers와 Assignees가 모두 없으면 CODEOWNERS 파일 확인
-   - 변경된 파일의 소유자들에게 알림
-   - `.github/CODEOWNERS`, `CODEOWNERS`, `docs/CODEOWNERS` 순서로 검색
+3. **Default Reviewers** (3순위)
+   - Assignees와 CODEOWNERS가 모두 없으면
+   - `.github/pr-notify-config.yml`의 `default_reviewers` 사용
 
-4. **Default Reviewers** (4순위)
-   - 위 모두 없으면 `.github/pr-notify-config.yml`의 `default_reviewers` 사용
-
-5. **채널 알림** (마지막)
+4. **채널 알림** (마지막)
    - 아무도 없으면 멘션 없이 채널에만 공지
+
+### 예시
+
+**케이스 1**: Reviewer 지정됨
+- Reviewer: `@springkjw`
+- Assignee: `@ok0035`
+- CODEOWNERS: `@datepop/frontend`
+- **결과**: `@springkjw`에게만 알림
+
+**케이스 2**: Reviewer 없음, Assignee + CODEOWNERS
+- Assignee: `@ok0035`
+- CODEOWNERS: `@datepop/frontend` (멤버: springkjw, Jh-jaehyuk)
+- **결과**: `@ok0035`, `@springkjw`, `@Jh-jaehyuk` 모두에게 알림
 
 ### CODEOWNERS 예시
 
