@@ -378,7 +378,8 @@ const PR_STATUS = {
   IN_REVIEW: 'in-review',
   APPROVED: 'approved',
   CHANGES_REQUESTED: 'changes-requested',
-  MERGED: 'merged'
+  MERGED: 'merged',
+  CLOSED: 'closed'
 };
 
 /**
@@ -392,7 +393,8 @@ function getStatusDisplay(status) {
     'in-review': { emoji: '🔵', text: '리뷰 중' },
     'approved': { emoji: '✅', text: '승인됨' },
     'changes-requested': { emoji: '🔴', text: '변경 요청됨' },
-    'merged': { emoji: '🎉', text: '머지됨' }
+    'merged': { emoji: '🎉', text: '머지됨' },
+    'closed': { emoji: '⚫', text: '닫힘' }
   };
 
   return displays[status] || displays['review-pending'];

@@ -260,6 +260,78 @@ async function handleComment(slackClient, octokit, context, config, slackChannel
   core.info(`✅ Comment notification sent to ${targetSlackIds.length} users`);
 }
 
+async function handlePRClosed(slackClient, octokit, context, config, slackChannel) {
+  const prData = parsePRData(context);
+  const merged = context.payload.pull_request?.merged;
+  core.info(`Processing PR ${merged ? 'merge' : 'close'} #${prData.number}`);
+
+  const threadTs = await getSlackThreadTs(
+    octokit,
+    context.repo.owner,
+    context.repo.repo,
+    prData.number
+  );
+
+  if (!threadTs) {
+    core.warning('No Slack thread found for this PR, skipping notification');
+    return;
+  }
+
+  const channelId = await getSlackChannelId(
+    octokit,
+    context.repo.owner,
+    context.repo.repo,
+    prData.number
+  );
+
+  if (!channelId) {
+    core.warning('No Slack channel found for this PR, skipping notification');
+    return;
+  }
+
+  const newStatus = merged ? PR_STATUS.MERGED : PR_STATUS.CLOSED;
+  await updatePRStatus(
+    octokit,
+    context.repo.owner,
+    context.repo.repo,
+    prData.number,
+    newStatus
+  );
+
+  const allReviewers = new Set();
+  if (prData.reviewers.length > 0) {
+    prData.reviewers.forEach(r => {
+      if (r !== prData.author) {
+        allReviewers.add(r);
+      }
+    });
+  }
+
+  const reviewerSlackIds = await mapGitHubUsersToSlack(
+    slackClient,
+    octokit,
+    Array.from(allReviewers),
+    config
+  );
+
+  const authorSlackId = await mapGitHubUserToSlack(
+    slackClient,
+    octokit,
+    prData.author,
+    config
+  );
+
+  const updatedMessage = createPRNotificationMessage(
+    prData,
+    reviewerSlackIds,
+    authorSlackId,
+    newStatus
+  );
+
+  await updateSlackMessage(slackClient, channelId, threadTs, updatedMessage);
+  core.info(`✅ Slack message updated with ${merged ? 'merged' : 'closed'} status`);
+}
+
 async function run() {
   try {
     const slackBotToken = core.getInput('slack_bot_token', { required: true });
@@ -280,7 +352,15 @@ async function run() {
     core.info(`Event type: ${eventName}`);
 
     if (eventName === 'pull_request') {
-      await handlePROpened(slackClient, octokit, context, config, slackChannel);
+      const action = context.payload.action;
+
+      if (action === 'closed') {
+        await handlePRClosed(slackClient, octokit, context, config, slackChannel);
+      } else if (action === 'opened' || action === 'ready_for_review') {
+        await handlePROpened(slackClient, octokit, context, config, slackChannel);
+      } else {
+        core.info(`Skipping pull_request action: ${action}`);
+      }
     } else if (eventName === 'issue_comment' || eventName === 'pull_request_review' || eventName === 'pull_request_review_comment') {
       await handleComment(slackClient, octokit, context, config, slackChannel);
     } else {

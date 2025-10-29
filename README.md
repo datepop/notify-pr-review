@@ -96,7 +96,7 @@ name: PR Review Notification
 
 on:
   pull_request:
-    types: [opened, ready_for_review]
+    types: [opened, ready_for_review, closed]
   issue_comment:
     types: [created]
   pull_request_review:
@@ -172,6 +172,7 @@ auto_match_by_email: true
   - ✅ 승인됨 (Approve 후)
   - 🔴 변경 요청됨 (Request Changes 후)
   - 🎉 머지됨 (PR 머지 후)
+  - ⚫ 닫힘 (PR 닫힘 후)
   - 📝 초안 (Draft PR)
 - **PR 요약**: PR 본문의 첫 3줄
 - **액션 버튼**: PR 보기, 변경사항 보기
@@ -383,7 +384,6 @@ MIT License
 - [ ] 커스터마이징 가능한 메시지 템플릿
 - [ ] 멀티 채널 지원
 - [ ] 특정 라벨이 붙은 PR만 알림
-- [ ] PR 머지시 상태 업데이트
 
 ## 📞 문의
 
