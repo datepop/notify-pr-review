@@ -2,7 +2,7 @@ const core = require('@actions/core');
 const github = require('@actions/github');
 const { WebClient } = require('@slack/web-api');
 const { loadConfig } = require('./src/config');
-const { parsePRData, parseCommentData, extractMentions, getSlackThreadTs, getCodeOwners, PR_STATUS, getPRStatus, updatePRStatus } = require('./src/github');
+const { parsePRData, parseCommentData, extractMentions, getSlackThreadTs, getSlackChannelId, getCodeOwners, PR_STATUS, getPRStatus, updatePRStatus } = require('./src/github');
 const { mapGitHubUsersToSlack, mapGitHubUserToSlack, getDefaultReviewersSlackIds } = require('./src/mapper');
 const { createPRNotificationMessage, sendSlackMessage, createCommentMessage, sendThreadReply, updateSlackMessage } = require('./src/slack');
 
@@ -94,7 +94,7 @@ async function handlePROpened(slackClient, octokit, context, config, slackChanne
     owner: context.repo.owner,
     repo: context.repo.repo,
     pull_number: prData.number,
-    body: prData.body + `\n\n<!-- slack-thread-ts: ${result.ts} -->\n<!-- slack-status: ${initialStatus} -->`
+    body: prData.body + `\n\n<!-- slack-thread-ts: ${result.ts} -->\n<!-- slack-channel: ${result.channel} -->\n<!-- slack-status: ${initialStatus} -->`
   });
 
   core.info(`Saved Slack thread ts and status to PR #${prData.number}`);
@@ -122,7 +122,18 @@ async function handleComment(slackClient, octokit, context, config, slackChannel
     return;
   }
 
-  // Get current PR status
+  const channelId = await getSlackChannelId(
+    octokit,
+    context.repo.owner,
+    context.repo.repo,
+    commentData.prNumber
+  );
+
+  if (!channelId) {
+    core.warning('No Slack channel found for this PR, skipping notification');
+    return;
+  }
+
   const currentStatus = await getPRStatus(
     octokit,
     context.repo.owner,
@@ -195,7 +206,7 @@ async function handleComment(slackClient, octokit, context, config, slackChannel
       newStatus
     );
 
-    await updateSlackMessage(slackClient, slackChannel, threadTs, updatedMessage);
+    await updateSlackMessage(slackClient, channelId, threadTs, updatedMessage);
     core.info(`✅ Slack message updated with new status: ${newStatus}`);
   }
 

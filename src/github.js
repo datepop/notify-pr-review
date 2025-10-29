@@ -152,6 +152,30 @@ async function getSlackThreadTs(octokit, owner, repo, prNumber) {
   }
 }
 
+async function getSlackChannelId(octokit, owner, repo, prNumber) {
+  try {
+    const { data: pr } = await octokit.rest.pulls.get({
+      owner,
+      repo,
+      pull_number: prNumber
+    });
+
+    const body = pr.body || '';
+    const match = body.match(/<!-- slack-channel: (.+?) -->/);
+
+    if (match && match[1]) {
+      core.debug(`Found Slack channel: ${match[1]}`);
+      return match[1];
+    }
+
+    core.warning(`No Slack channel found in PR #${prNumber}`);
+    return null;
+  } catch (error) {
+    core.error(`Failed to get Slack channel: ${error.message}`);
+    return null;
+  }
+}
+
 /**
  * Get changed files in PR
  * @param {Object} octokit - GitHub API client
@@ -452,6 +476,7 @@ module.exports = {
   parseCommentData,
   extractMentions,
   getSlackThreadTs,
+  getSlackChannelId,
   getCodeOwners,
   PR_STATUS,
   getStatusDisplay,
