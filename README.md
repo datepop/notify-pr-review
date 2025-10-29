@@ -9,7 +9,8 @@ GitHub Pull Request 생성 및 코멘트를 Slack 채널에 자동으로 알림�
 - 🧵 **스레드 관리**: 같은 PR의 모든 알림이 하나의 스레드로 묶여서 관리
 - 📧 **이메일 기반 매핑**: GitHub 아이디를 이메일로 매핑하여 Slack 멘션
 - 🔄 **자동 매칭**: GitHub 계정 이메일과 Slack 이메일이 동일하면 자동 매핑
-- 👥 **기본 리뷰어 설정**: Reviewer가 없어도 지정된 기본 리뷰어에게 알림
+- 👥 **스마트 리뷰어 결정**: Reviewers → Assignees → CODEOWNERS → Default Reviewers 순으로 자동 결정
+- 📁 **CODEOWNERS 지원**: 변경된 파일의 코드 소유자에게 자동 알림
 - 🎨 **깔끔한 메시지**: Slack Block Kit으로 디자인된 가독성 높은 메시지
 
 ## 📋 요구사항
@@ -177,6 +178,46 @@ auto_match_by_email: true
 - **리뷰 코멘트**: 💬 멘션된 사람에게만 알림
 
 모든 코멘트 알림은 원본 PR 메시지의 스레드로 전송됩니다.
+
+## 👥 리뷰어 결정 로직
+
+PR 알림을 받을 사람은 다음 우선순위로 자동 결정됩니다:
+
+1. **PR Reviewers** (최우선)
+   - PR에 명시적으로 할당된 리뷰어가 있으면 사용
+
+2. **PR Assignees** (2순위)
+   - Reviewers가 없고 Assignees가 있으면 사용
+
+3. **CODEOWNERS** (3순위)
+   - Reviewers와 Assignees가 모두 없으면 CODEOWNERS 파일 확인
+   - 변경된 파일의 소유자들에게 알림
+   - `.github/CODEOWNERS`, `CODEOWNERS`, `docs/CODEOWNERS` 순서로 검색
+
+4. **Default Reviewers** (4순위)
+   - 위 모두 없으면 `.github/pr-notify-config.yml`의 `default_reviewers` 사용
+
+5. **채널 알림** (마지막)
+   - 아무도 없으면 멘션 없이 채널에만 공지
+
+### CODEOWNERS 예시
+
+`.github/CODEOWNERS` 파일:
+```
+# 모든 파일
+*                    @ok0035 @hemg2
+
+# JavaScript 파일
+*.js                 @springkjw @Jh-jaehyuk
+
+# 스타일 파일
+*.scss               @yeodahui
+
+# 백엔드 디렉토리
+/backend/            @yoon-yoo-sang
+```
+
+`Button.scss` 파일을 수정하면 `@yeodahui`에게 자동 알림이 갑니다.
 
 ## 🔧 고급 설정
 

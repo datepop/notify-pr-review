@@ -26,6 +26,7 @@ function parsePRData(context) {
     changedFiles: pull_request.changed_files || 0,
     isDraft: pull_request.draft || false,
     reviewers: (pull_request.requested_reviewers || []).map(r => r.login),
+    assignees: (pull_request.assignees || []).map(a => a.login),
     repo: {
       name: context.payload.repository.name,
       fullName: context.payload.repository.full_name,
@@ -152,10 +153,154 @@ async function getSlackThreadTs(octokit, owner, repo, prNumber) {
   }
 }
 
+/**
+ * Get changed files in PR
+ * @param {Object} octokit - GitHub API client
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - PR number
+ * @returns {Promise<Array<string>>} Array of changed file paths
+ */
+async function getChangedFiles(octokit, owner, repo, prNumber) {
+  try {
+    const { data: files } = await octokit.rest.pulls.listFiles({
+      owner,
+      repo,
+      pull_number: prNumber
+    });
+
+    return files.map(file => file.filename);
+  } catch (error) {
+    core.warning(`Failed to get changed files: ${error.message}`);
+    return [];
+  }
+}
+
+/**
+ * Parse CODEOWNERS file
+ * @param {string} content - CODEOWNERS file content
+ * @returns {Array<Object>} Array of {pattern, owners}
+ */
+function parseCodeowners(content) {
+  const rules = [];
+  const lines = content.split('\n');
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    const parts = trimmed.split(/\s+/);
+    if (parts.length < 2) continue;
+
+    const pattern = parts[0];
+    const owners = parts.slice(1)
+      .filter(o => o.startsWith('@'))
+      .map(o => o.substring(1));
+
+    if (owners.length > 0) {
+      rules.push({ pattern, owners });
+    }
+  }
+
+  return rules.reverse();
+}
+
+/**
+ * Match file to CODEOWNERS pattern
+ * @param {string} file - File path
+ * @param {string} pattern - CODEOWNERS pattern
+ * @returns {boolean} Whether file matches pattern
+ */
+function matchPattern(file, pattern) {
+  if (pattern === '*') return true;
+
+  if (pattern.startsWith('*.')) {
+    const ext = pattern.substring(1);
+    return file.endsWith(ext);
+  }
+
+  if (pattern.endsWith('/')) {
+    return file.startsWith(pattern) || file.startsWith(pattern.substring(0, pattern.length - 1));
+  }
+
+  if (pattern.startsWith('/')) {
+    return file === pattern.substring(1) || file.startsWith(pattern.substring(1) + '/');
+  }
+
+  return file.includes(pattern);
+}
+
+/**
+ * Get code owners from CODEOWNERS file
+ * @param {Object} octokit - GitHub API client
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - PR number
+ * @returns {Promise<Array<string>>} Array of owner usernames
+ */
+async function getCodeOwners(octokit, owner, repo, prNumber) {
+  try {
+    const changedFiles = await getChangedFiles(octokit, owner, repo, prNumber);
+    if (changedFiles.length === 0) {
+      return [];
+    }
+
+    const paths = ['.github/CODEOWNERS', 'CODEOWNERS', 'docs/CODEOWNERS'];
+    let codeownersContent = null;
+
+    for (const path of paths) {
+      try {
+        const { data } = await octokit.rest.repos.getContent({
+          owner,
+          repo,
+          path
+        });
+
+        if (data.content) {
+          codeownersContent = Buffer.from(data.content, 'base64').toString('utf-8');
+          core.info(`Found CODEOWNERS at ${path}`);
+          break;
+        }
+      } catch (error) {
+        continue;
+      }
+    }
+
+    if (!codeownersContent) {
+      core.debug('No CODEOWNERS file found');
+      return [];
+    }
+
+    const rules = parseCodeowners(codeownersContent);
+    const ownersSet = new Set();
+
+    for (const file of changedFiles) {
+      for (const rule of rules) {
+        if (matchPattern(file, rule.pattern)) {
+          rule.owners.forEach(owner => ownersSet.add(owner));
+          break;
+        }
+      }
+    }
+
+    const owners = Array.from(ownersSet);
+    if (owners.length > 0) {
+      core.info(`Found ${owners.length} code owners from CODEOWNERS: ${owners.join(', ')}`);
+    }
+
+    return owners;
+  } catch (error) {
+    core.warning(`Failed to get code owners: ${error.message}`);
+    return [];
+  }
+}
+
 module.exports = {
   parsePRData,
   summarizePRBody,
   parseCommentData,
   extractMentions,
-  getSlackThreadTs
+  getSlackThreadTs,
+  getCodeOwners
 };

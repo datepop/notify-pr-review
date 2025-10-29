@@ -2,7 +2,7 @@ const core = require('@actions/core');
 const github = require('@actions/github');
 const { WebClient } = require('@slack/web-api');
 const { loadConfig } = require('./src/config');
-const { parsePRData, parseCommentData, extractMentions, getSlackThreadTs } = require('./src/github');
+const { parsePRData, parseCommentData, extractMentions, getSlackThreadTs, getCodeOwners } = require('./src/github');
 const { mapGitHubUsersToSlack, mapGitHubUserToSlack, getDefaultReviewersSlackIds } = require('./src/mapper');
 const { createPRNotificationMessage, sendSlackMessage, createCommentMessage, sendThreadReply } = require('./src/slack');
 
@@ -18,6 +18,7 @@ async function handlePROpened(slackClient, octokit, context, config, slackChanne
   );
 
   let reviewerSlackIds = [];
+  let reviewerSource = 'none';
 
   if (prData.reviewers.length > 0) {
     core.info(`Found ${prData.reviewers.length} assigned reviewers`);
@@ -27,17 +28,46 @@ async function handlePROpened(slackClient, octokit, context, config, slackChanne
       prData.reviewers,
       config
     );
-  } else if (config.default_reviewers.length > 0) {
-    core.info('No reviewers assigned, using default reviewers');
-    reviewerSlackIds = await getDefaultReviewersSlackIds(
+    reviewerSource = 'reviewers';
+  } else if (prData.assignees.length > 0) {
+    core.info(`No reviewers, found ${prData.assignees.length} assignees`);
+    reviewerSlackIds = await mapGitHubUsersToSlack(
       slackClient,
-      config.default_reviewers
+      octokit,
+      prData.assignees,
+      config
     );
+    reviewerSource = 'assignees';
   } else {
-    core.warning('No reviewers found and no default reviewers configured');
+    core.info('No reviewers or assignees, checking CODEOWNERS');
+    const codeOwners = await getCodeOwners(
+      octokit,
+      context.repo.owner,
+      context.repo.repo,
+      prData.number
+    );
+
+    if (codeOwners.length > 0) {
+      reviewerSlackIds = await mapGitHubUsersToSlack(
+        slackClient,
+        octokit,
+        codeOwners,
+        config
+      );
+      reviewerSource = 'codeowners';
+    } else if (config.default_reviewers.length > 0) {
+      core.info('No code owners found, using default reviewers');
+      reviewerSlackIds = await getDefaultReviewersSlackIds(
+        slackClient,
+        config.default_reviewers
+      );
+      reviewerSource = 'default';
+    } else {
+      core.info('No reviewers found from any source, will notify channel only');
+    }
   }
 
-  core.info(`Notifying ${reviewerSlackIds.length} Slack users`);
+  core.info(`Notifying ${reviewerSlackIds.length} Slack users (source: ${reviewerSource})`);
 
   const message = createPRNotificationMessage(prData, reviewerSlackIds, authorSlackId);
   const result = await sendSlackMessage(slackClient, slackChannel, message);
