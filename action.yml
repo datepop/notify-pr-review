@@ -12,7 +12,8 @@ inputs:
     required: true
   slack_channel:
     description: 'Slack channel to send notifications (e.g., #pr-reviews)'
-    required: true
+    required: false
+    default: '#개발-코드리뷰'
   github_token:
     description: 'GitHub Token for API access'
     required: false
