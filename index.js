@@ -2,9 +2,9 @@ const core = require('@actions/core');
 const github = require('@actions/github');
 const { WebClient } = require('@slack/web-api');
 const { loadConfig } = require('./src/config');
-const { parsePRData, parseCommentData, extractMentions, getSlackThreadTs, getCodeOwners } = require('./src/github');
+const { parsePRData, parseCommentData, extractMentions, getSlackThreadTs, getCodeOwners, PR_STATUS, getPRStatus, updatePRStatus } = require('./src/github');
 const { mapGitHubUsersToSlack, mapGitHubUserToSlack, getDefaultReviewersSlackIds } = require('./src/mapper');
-const { createPRNotificationMessage, sendSlackMessage, createCommentMessage, sendThreadReply } = require('./src/slack');
+const { createPRNotificationMessage, sendSlackMessage, createCommentMessage, sendThreadReply, updateSlackMessage } = require('./src/slack');
 
 async function handlePROpened(slackClient, octokit, context, config, slackChannel) {
   const prData = parsePRData(context);
@@ -86,17 +86,18 @@ async function handlePROpened(slackClient, octokit, context, config, slackChanne
 
   core.info(`Notifying ${reviewerSlackIds.length} Slack users (source: ${reviewerSource})`);
 
-  const message = createPRNotificationMessage(prData, reviewerSlackIds, authorSlackId);
+  const initialStatus = PR_STATUS.REVIEW_PENDING;
+  const message = createPRNotificationMessage(prData, reviewerSlackIds, authorSlackId, initialStatus);
   const result = await sendSlackMessage(slackClient, slackChannel, message);
 
   await octokit.rest.pulls.update({
     owner: context.repo.owner,
     repo: context.repo.repo,
     pull_number: prData.number,
-    body: prData.body + `\n\n<!-- slack-thread-ts: ${result.ts} -->`
+    body: prData.body + `\n\n<!-- slack-thread-ts: ${result.ts} -->\n<!-- slack-status: ${initialStatus} -->`
   });
 
-  core.info(`Saved Slack thread ts to PR #${prData.number}`);
+  core.info(`Saved Slack thread ts and status to PR #${prData.number}`);
   core.info('✅ PR notification sent successfully!');
 }
 
@@ -119,6 +120,29 @@ async function handleComment(slackClient, octokit, context, config, slackChannel
   if (!threadTs) {
     core.warning('No Slack thread found for this PR, skipping notification');
     return;
+  }
+
+  // Get current PR status
+  const currentStatus = await getPRStatus(
+    octokit,
+    context.repo.owner,
+    context.repo.repo,
+    commentData.prNumber
+  );
+
+  // Determine new status based on comment type
+  let newStatus = currentStatus;
+
+  if (commentData.reviewState === 'approved') {
+    newStatus = PR_STATUS.APPROVED;
+    core.info('Review approved - updating status to approved');
+  } else if (commentData.reviewState === 'changes_requested') {
+    newStatus = PR_STATUS.CHANGES_REQUESTED;
+    core.info('Changes requested - updating status to changes-requested');
+  } else if (currentStatus === PR_STATUS.REVIEW_PENDING) {
+    // First comment on a review-pending PR changes status to in-review
+    newStatus = PR_STATUS.IN_REVIEW;
+    core.info('First comment detected - updating status to in-review');
   }
 
   let targetUsers = [];
@@ -169,6 +193,63 @@ async function handleComment(slackClient, octokit, context, config, slackChannel
   await sendThreadReply(slackClient, slackChannel, threadTs, message);
 
   core.info(`✅ Comment notification sent to ${targetSlackIds.length} users`);
+
+  // Update PR status if it changed
+  if (newStatus !== currentStatus) {
+    await updatePRStatus(
+      octokit,
+      context.repo.owner,
+      context.repo.repo,
+      commentData.prNumber,
+      newStatus
+    );
+
+    // Update the Slack message with new status
+    const { data: pr } = await octokit.rest.pulls.get({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      pull_number: commentData.prNumber
+    });
+
+    const prData = {
+      ...parsePRData({ payload: { pull_request: pr } }),
+      body: pr.body
+    };
+
+    // Get all reviewers for the updated message
+    const allReviewers = new Set();
+    if (pr.requested_reviewers && pr.requested_reviewers.length > 0) {
+      pr.requested_reviewers.forEach(r => {
+        if (r.login !== pr.user.login) {
+          allReviewers.add(r.login);
+        }
+      });
+    }
+
+    const reviewerSlackIds = await mapGitHubUsersToSlack(
+      slackClient,
+      octokit,
+      Array.from(allReviewers),
+      config
+    );
+
+    const authorSlackIdForUpdate = await mapGitHubUserToSlack(
+      slackClient,
+      octokit,
+      pr.user.login,
+      config
+    );
+
+    const updatedMessage = createPRNotificationMessage(
+      prData,
+      reviewerSlackIds,
+      authorSlackIdForUpdate,
+      newStatus
+    );
+
+    await updateSlackMessage(slackClient, slackChannel, threadTs, updatedMessage);
+    core.info(`✅ Slack message updated with new status: ${newStatus}`);
+  }
 }
 
 async function run() {

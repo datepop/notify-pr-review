@@ -346,11 +346,115 @@ async function getCodeOwners(octokit, owner, repo, prNumber) {
   }
 }
 
+/**
+ * PR Status constants
+ */
+const PR_STATUS = {
+  REVIEW_PENDING: 'review-pending',
+  IN_REVIEW: 'in-review',
+  APPROVED: 'approved',
+  CHANGES_REQUESTED: 'changes-requested',
+  MERGED: 'merged'
+};
+
+/**
+ * Get PR status display info
+ * @param {string} status - PR status
+ * @returns {Object} {emoji, text}
+ */
+function getStatusDisplay(status) {
+  const displays = {
+    'review-pending': { emoji: '🟡', text: '리뷰 대기중' },
+    'in-review': { emoji: '🔵', text: '리뷰 중' },
+    'approved': { emoji: '✅', text: '승인됨' },
+    'changes-requested': { emoji: '🔴', text: '변경 요청됨' },
+    'merged': { emoji: '🎉', text: '머지됨' }
+  };
+
+  return displays[status] || displays['review-pending'];
+}
+
+/**
+ * Get current PR status from PR body
+ * @param {Object} octokit - GitHub API client
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - PR number
+ * @returns {Promise<string|null>} Current status or null
+ */
+async function getPRStatus(octokit, owner, repo, prNumber) {
+  try {
+    const { data: pr } = await octokit.rest.pulls.get({
+      owner,
+      repo,
+      pull_number: prNumber
+    });
+
+    const body = pr.body || '';
+    const match = body.match(/<!-- slack-status: (.+?) -->/);
+
+    if (match && match[1]) {
+      core.debug(`Found PR status: ${match[1]}`);
+      return match[1];
+    }
+
+    return null;
+  } catch (error) {
+    core.warning(`Failed to get PR status: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * Update PR status in PR body
+ * @param {Object} octokit - GitHub API client
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - PR number
+ * @param {string} newStatus - New status
+ * @returns {Promise<boolean>} Success
+ */
+async function updatePRStatus(octokit, owner, repo, prNumber, newStatus) {
+  try {
+    const { data: pr } = await octokit.rest.pulls.get({
+      owner,
+      repo,
+      pull_number: prNumber
+    });
+
+    let body = pr.body || '';
+    const statusPattern = /<!-- slack-status: .+? -->/;
+
+    if (statusPattern.test(body)) {
+      body = body.replace(statusPattern, `<!-- slack-status: ${newStatus} -->`);
+    } else {
+      body += `\n\n<!-- slack-status: ${newStatus} -->`;
+    }
+
+    await octokit.rest.pulls.update({
+      owner,
+      repo,
+      pull_number: prNumber,
+      body
+    });
+
+    core.info(`Updated PR status to: ${newStatus}`);
+    return true;
+  } catch (error) {
+    core.warning(`Failed to update PR status: ${error.message}`);
+    return false;
+  }
+}
+
 module.exports = {
   parsePRData,
   summarizePRBody,
   parseCommentData,
   extractMentions,
   getSlackThreadTs,
-  getCodeOwners
+  getCodeOwners,
+  PR_STATUS,
+  getStatusDisplay,
+  getPRStatus,
+  updatePRStatus
 };

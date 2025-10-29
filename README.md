@@ -7,6 +7,7 @@ GitHub Pull Request 생성 및 코멘트를 Slack 채널에 자동으로 알림�
 - 👀 **코드 리뷰 요청 알림**: PR이 생성되면 Slack으로 즉시 알림
 - 💬 **코멘트 알림**: PR 코멘트, 리뷰, 승인/변경요청시 멘션된 사람에게 알림
 - 🧵 **스레드 관리**: 같은 PR의 모든 알림이 하나의 스레드로 묶여서 관리
+- 🔄 **동적 상태 업데이트**: PR 상태가 변경되면 Slack 메시지가 자동으로 업데이트
 - 📧 **이메일 기반 매핑**: GitHub 아이디를 이메일로 매핑하여 Slack 멘션
 - 🔄 **자동 매칭**: GitHub 계정 이메일과 Slack 이메일이 동일하면 자동 매핑
 - 👥 **스마트 리뷰어 결정**: Reviewers + CODEOWNERS + Default Reviewers를 모두 합쳐서 알림
@@ -165,9 +166,17 @@ auto_match_by_email: true
 - **작성자**: Slack 멘션으로 표시
 - **리뷰어**: 멘션된 리뷰어 목록
 - **변경사항**: 추가/삭제된 라인 수 및 파일 개수
-- **상태**: 리뷰 대기중 / 초안(Draft)
+- **상태**:
+  - 🟡 리뷰 대기중 (초기 상태)
+  - 🔵 리뷰 중 (첫 코멘트 후)
+  - ✅ 승인됨 (Approve 후)
+  - 🔴 변경 요청됨 (Request Changes 후)
+  - 🎉 머지됨 (PR 머지 후)
+  - 📝 초안 (Draft PR)
 - **PR 요약**: PR 본문의 첫 3줄
 - **액션 버튼**: PR 보기, 변경사항 보기
+
+**상태 자동 업데이트**: PR의 진행 상황에 따라 Slack 메시지의 상태가 자동으로 업데이트됩니다.
 
 ### 코멘트 알림 (스레드 답장)
 
@@ -243,6 +252,32 @@ PR 알림을 받을 사람은 **모든 소스를 합쳐서** 결정됩니다:
 **예시**:
 - `Button.scss` 파일 수정 → `@yeodahui`에게 알림
 - `Button.js` 파일 수정 → `@springkjw`, `@Jh-jaehyuk` + `@datepop/frontend` 팀 전체에게 알림
+
+**팀 사용을 위한 Fine-grained PAT 설정**:
+
+CODEOWNERS에서 팀을 사용하려면 추가 GitHub Token 설정이 필요합니다:
+
+1. [GitHub Token 생성](https://github.com/settings/tokens?type=beta)
+2. **Repository permissions**:
+   - Pull requests: Read and write
+   - Contents: Read-only
+3. **Organization permissions**:
+   - Members: Read-only
+4. Organization 승인 필요:
+   - `https://github.com/organizations/YOUR_ORG/settings/personal-access-tokens/active`로 이동
+   - 요청 승인
+5. GitHub Secrets에 `GH_PAT` 추가
+6. 워크플로우에서 사용:
+   ```yaml
+   - name: Notify Slack
+     uses: datepop/notify-pr-review@v1.4.0
+     with:
+       slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
+       github_token: ${{ secrets.GH_PAT }}  # 팀 지원을 위해 필요
+       user_mappings: ${{ secrets.USER_MAPPINGS }}
+   ```
+
+**참고**: 팀을 사용하지 않고 개인만 CODEOWNERS에 지정한다면 기본 `${{ github.token }}`으로 충분합니다.
 
 ## 🔧 고급 설정
 
@@ -345,10 +380,10 @@ MIT License
 
 ## 💡 다음 기능 (Coming Soon)
 
-- [ ] PR 업데이트시 메시지 업데이트 (새 메시지 대신)
 - [ ] 커스터마이징 가능한 메시지 템플릿
 - [ ] 멀티 채널 지원
 - [ ] 특정 라벨이 붙은 PR만 알림
+- [ ] PR 머지시 상태 업데이트
 
 ## 📞 문의
 

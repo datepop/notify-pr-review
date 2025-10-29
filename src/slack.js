@@ -1,19 +1,21 @@
 const core = require('@actions/core');
-const { summarizePRBody } = require('./github');
+const { summarizePRBody, getStatusDisplay } = require('./github');
 
 /**
  * Create Slack Block Kit message for PR notification
  * @param {Object} prData - Parsed PR data
  * @param {Array<string>} reviewerSlackIds - Array of Slack User IDs
  * @param {string} authorSlackId - Author's Slack User ID (optional)
+ * @param {string} status - PR status (default: review-pending)
  * @returns {Object} Slack message payload
  */
-function createPRNotificationMessage(prData, reviewerSlackIds, authorSlackId = null) {
+function createPRNotificationMessage(prData, reviewerSlackIds, authorSlackId = null, status = 'review-pending') {
   const reviewerMentions = reviewerSlackIds.map(id => `<@${id}>`).join(' ');
   const authorMention = authorSlackId ? `<@${authorSlackId}>` : `@${prData.author}`;
 
-  const statusEmoji = prData.isDraft ? '📝' : '🟡';
-  const statusText = prData.isDraft ? '초안 (Draft)' : '리뷰 대기중';
+  const statusDisplay = getStatusDisplay(status);
+  const statusEmoji = prData.isDraft ? '📝' : statusDisplay.emoji;
+  const statusText = prData.isDraft ? '초안 (Draft)' : statusDisplay.text;
 
   const blocks = [
     {
@@ -242,9 +244,38 @@ async function sendThreadReply(slackClient, channel, threadTs, message) {
   }
 }
 
+/**
+ * Update an existing Slack message
+ * @param {Object} slackClient - Slack WebClient instance
+ * @param {string} channel - Slack channel ID or name
+ * @param {string} messageTs - Message timestamp to update
+ * @param {Object} message - Updated message payload
+ * @returns {Promise<Object>} Slack API response
+ */
+async function updateSlackMessage(slackClient, channel, messageTs, message) {
+  try {
+    const result = await slackClient.chat.update({
+      channel,
+      ts: messageTs,
+      ...message
+    });
+
+    if (result.ok) {
+      core.info(`Slack message updated successfully in ${channel}`);
+      return result;
+    } else {
+      throw new Error(`Slack API returned error: ${result.error}`);
+    }
+  } catch (error) {
+    core.error(`Failed to update Slack message: ${error.message}`);
+    throw error;
+  }
+}
+
 module.exports = {
   createPRNotificationMessage,
   sendSlackMessage,
   createCommentMessage,
-  sendThreadReply
+  sendThreadReply,
+  updateSlackMessage
 };
