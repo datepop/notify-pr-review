@@ -17,59 +17,59 @@ async function handlePROpened(slackClient, octokit, context, config, slackChanne
     config
   );
 
-  let reviewerSlackIds = [];
-  let reviewerSource = 'none';
+  const allReviewers = new Set();
+  const sources = [];
 
   if (prData.reviewers.length > 0) {
     core.info(`Found ${prData.reviewers.length} assigned reviewers`);
+    prData.reviewers.forEach(r => allReviewers.add(r));
+    sources.push('reviewers');
+  }
+
+  const codeOwners = await getCodeOwners(
+    octokit,
+    context.repo.owner,
+    context.repo.repo,
+    prData.number
+  );
+
+  if (codeOwners.length > 0) {
+    core.info(`Found ${codeOwners.length} code owners`);
+    codeOwners.forEach(o => allReviewers.add(o));
+    sources.push('codeowners');
+  }
+
+  let reviewerSlackIds = [];
+  let reviewerSource = 'none';
+
+  if (allReviewers.size > 0) {
     reviewerSlackIds = await mapGitHubUsersToSlack(
       slackClient,
       octokit,
-      prData.reviewers,
+      Array.from(allReviewers),
       config
     );
-    reviewerSource = 'reviewers';
-  } else {
-    const allReviewers = new Set();
-    const sources = [];
+    reviewerSource = sources.join(' + ');
+  }
 
-    if (prData.assignees.length > 0) {
-      core.info(`Found ${prData.assignees.length} assignees`);
-      prData.assignees.forEach(a => allReviewers.add(a));
-      sources.push('assignees');
-    }
-
-    const codeOwners = await getCodeOwners(
-      octokit,
-      context.repo.owner,
-      context.repo.repo,
-      prData.number
+  if (config.default_reviewers.length > 0) {
+    core.info(`Found ${config.default_reviewers.length} default reviewers`);
+    const defaultSlackIds = await getDefaultReviewersSlackIds(
+      slackClient,
+      config.default_reviewers
     );
 
-    if (codeOwners.length > 0) {
-      core.info(`Found ${codeOwners.length} code owners`);
-      codeOwners.forEach(o => allReviewers.add(o));
-      sources.push('codeowners');
-    }
+    const uniqueSlackIds = new Set([...reviewerSlackIds, ...defaultSlackIds]);
+    reviewerSlackIds = Array.from(uniqueSlackIds);
 
-    if (allReviewers.size > 0) {
-      reviewerSlackIds = await mapGitHubUsersToSlack(
-        slackClient,
-        octokit,
-        Array.from(allReviewers),
-        config
-      );
+    if (defaultSlackIds.length > 0) {
+      sources.push('default');
       reviewerSource = sources.join(' + ');
-    } else if (config.default_reviewers.length > 0) {
-      core.info('No assignees or code owners found, using default reviewers');
-      reviewerSlackIds = await getDefaultReviewersSlackIds(
-        slackClient,
-        config.default_reviewers
-      );
-      reviewerSource = 'default';
-    } else {
-      core.info('No reviewers found from any source, will notify channel only');
     }
+  }
+
+  if (reviewerSlackIds.length === 0) {
+    core.info('No reviewers found from any source, will notify channel only');
   }
 
   core.info(`Notifying ${reviewerSlackIds.length} Slack users (source: ${reviewerSource})`);

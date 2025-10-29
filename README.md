@@ -9,7 +9,7 @@ GitHub Pull Request 생성 및 코멘트를 Slack 채널에 자동으로 알림�
 - 🧵 **스레드 관리**: 같은 PR의 모든 알림이 하나의 스레드로 묶여서 관리
 - 📧 **이메일 기반 매핑**: GitHub 아이디를 이메일로 매핑하여 Slack 멘션
 - 🔄 **자동 매칭**: GitHub 계정 이메일과 Slack 이메일이 동일하면 자동 매핑
-- 👥 **스마트 리뷰어 결정**: Reviewers → Assignees → CODEOWNERS → Default Reviewers 순으로 자동 결정
+- 👥 **스마트 리뷰어 결정**: Reviewers + CODEOWNERS + Default Reviewers를 모두 합쳐서 알림
 - 📁 **CODEOWNERS 지원**: 변경된 파일의 코드 소유자에게 자동 알림 (개인 + 팀)
 - 🎨 **깔끔한 메시지**: Slack Block Kit으로 디자인된 가독성 높은 메시지
 
@@ -181,36 +181,38 @@ auto_match_by_email: true
 
 ## 👥 리뷰어 결정 로직
 
-PR 알림을 받을 사람은 다음 로직으로 자동 결정됩니다:
+PR 알림을 받을 사람은 **모든 소스를 합쳐서** 결정됩니다:
 
-1. **PR Reviewers** (최우선)
-   - PR에 명시적으로 할당된 리뷰어가 있으면 **오직 리뷰어에게만** 알림
+### 알림 대상 수집
 
-2. **Assignees + CODEOWNERS** (2순위)
-   - Reviewers가 없으면:
-     - PR Assignees 수집
-     - CODEOWNERS 파일에서 변경된 파일의 소유자 수집
-     - **둘 다 합쳐서** 알림 (중복 제거)
+다음 세 가지 소스를 **모두 수집**합니다:
 
-3. **Default Reviewers** (3순위)
-   - Assignees와 CODEOWNERS가 모두 없으면
-   - `.github/pr-notify-config.yml`의 `default_reviewers` 사용
+1. **PR Reviewers**
+   - PR에 명시적으로 할당된 리뷰어
 
-4. **채널 알림** (마지막)
-   - 아무도 없으면 멘션 없이 채널에만 공지
+2. **CODEOWNERS**
+   - 변경된 파일의 코드 소유자 (개인 + 팀)
+   - `.github/CODEOWNERS`, `CODEOWNERS`, `docs/CODEOWNERS` 순서로 검색
+
+3. **Default Reviewers**
+   - `.github/pr-notify-config.yml`의 `default_reviewers`
+
+**최종 알림**: 위 세 가지를 **모두 합쳐서** 알림 (중복 제거)
 
 ### 예시
 
-**케이스 1**: Reviewer 지정됨
+**케이스 1**: 모든 소스가 있는 경우
 - Reviewer: `@springkjw`
-- Assignee: `@ok0035`
-- CODEOWNERS: `@datepop/frontend`
-- **결과**: `@springkjw`에게만 알림
+- CODEOWNERS: `@datepop/frontend` (멤버: Jh-jaehyuk, yeodahui)
+- Default: `@ok0035`
+- **결과**: `@springkjw`, `@Jh-jaehyuk`, `@yeodahui`, `@ok0035` 모두에게 알림 (4명)
 
-**케이스 2**: Reviewer 없음, Assignee + CODEOWNERS
-- Assignee: `@ok0035`
-- CODEOWNERS: `@datepop/frontend` (멤버: springkjw, Jh-jaehyuk)
-- **결과**: `@ok0035`, `@springkjw`, `@Jh-jaehyuk` 모두에게 알림
+**케이스 2**: CODEOWNERS만 있는 경우
+- CODEOWNERS: `@yoon-yoo-sang`
+- **결과**: `@yoon-yoo-sang`에게 알림
+
+**케이스 3**: 아무도 없는 경우
+- **결과**: 멘션 없이 채널에만 공지
 
 ### CODEOWNERS 예시
 

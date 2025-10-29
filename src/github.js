@@ -26,7 +26,6 @@ function parsePRData(context) {
     changedFiles: pull_request.changed_files || 0,
     isDraft: pull_request.draft || false,
     reviewers: (pull_request.requested_reviewers || []).map(r => r.login),
-    assignees: (pull_request.assignees || []).map(a => a.login),
     repo: {
       name: context.payload.repository.name,
       fullName: context.payload.repository.full_name,
