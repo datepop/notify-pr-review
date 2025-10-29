@@ -22,7 +22,11 @@ async function handlePROpened(slackClient, octokit, context, config, slackChanne
 
   if (prData.reviewers.length > 0) {
     core.info(`Found ${prData.reviewers.length} assigned reviewers`);
-    prData.reviewers.forEach(r => allReviewers.add(r));
+    prData.reviewers.forEach(r => {
+      if (r !== prData.author) {
+        allReviewers.add(r);
+      }
+    });
     sources.push('reviewers');
   }
 
@@ -35,8 +39,16 @@ async function handlePROpened(slackClient, octokit, context, config, slackChanne
 
   if (codeOwners.length > 0) {
     core.info(`Found ${codeOwners.length} code owners`);
-    codeOwners.forEach(o => allReviewers.add(o));
+    codeOwners.forEach(o => {
+      if (o !== prData.author) {
+        allReviewers.add(o);
+      }
+    });
     sources.push('codeowners');
+  }
+
+  if (allReviewers.size > 0) {
+    core.info(`Filtered out PR author (${prData.author}) from reviewers`);
   }
 
   let reviewerSlackIds = [];
