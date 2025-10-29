@@ -145,56 +145,7 @@ async function handleComment(slackClient, octokit, context, config, slackChannel
     core.info('First comment detected - updating status to in-review');
   }
 
-  let targetUsers = [];
-
-  if (commentData.reviewState === 'approved' || commentData.reviewState === 'changes_requested') {
-    const { data: pr } = await octokit.rest.pulls.get({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      pull_number: commentData.prNumber
-    });
-    targetUsers.push(pr.user.login);
-    core.info(`Review notification - notifying PR author: ${pr.user.login}`);
-  }
-
-  const mentions = extractMentions(commentData.body);
-  if (mentions.length > 0) {
-    targetUsers.push(...mentions);
-    core.info(`Found ${mentions.length} mentions: ${mentions.join(', ')}`);
-  }
-
-  if (targetUsers.length === 0) {
-    core.info('No mentions found and not a review, skipping notification');
-    return;
-  }
-
-  targetUsers = [...new Set(targetUsers)];
-
-  const targetSlackIds = await mapGitHubUsersToSlack(
-    slackClient,
-    octokit,
-    targetUsers,
-    config
-  );
-
-  if (targetSlackIds.length === 0) {
-    core.warning('Could not find Slack users for any mentioned users');
-    return;
-  }
-
-  const authorSlackId = await mapGitHubUserToSlack(
-    slackClient,
-    octokit,
-    commentData.author,
-    config
-  );
-
-  const message = createCommentMessage(commentData, targetSlackIds, authorSlackId, null);
-  await sendThreadReply(slackClient, slackChannel, threadTs, message);
-
-  core.info(`✅ Comment notification sent to ${targetSlackIds.length} users`);
-
-  // Update PR status if it changed
+  // Update PR status if it changed (do this BEFORE checking for mentions)
   if (newStatus !== currentStatus) {
     await updatePRStatus(
       octokit,
@@ -250,6 +201,56 @@ async function handleComment(slackClient, octokit, context, config, slackChannel
     await updateSlackMessage(slackClient, slackChannel, threadTs, updatedMessage);
     core.info(`✅ Slack message updated with new status: ${newStatus}`);
   }
+
+  // Now handle notifications (independent of status update)
+  let targetUsers = [];
+
+  if (commentData.reviewState === 'approved' || commentData.reviewState === 'changes_requested') {
+    const { data: pr } = await octokit.rest.pulls.get({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      pull_number: commentData.prNumber
+    });
+    targetUsers.push(pr.user.login);
+    core.info(`Review notification - notifying PR author: ${pr.user.login}`);
+  }
+
+  const mentions = extractMentions(commentData.body);
+  if (mentions.length > 0) {
+    targetUsers.push(...mentions);
+    core.info(`Found ${mentions.length} mentions: ${mentions.join(', ')}`);
+  }
+
+  if (targetUsers.length === 0) {
+    core.info('No mentions found and not a review, skipping notification');
+    return;
+  }
+
+  targetUsers = [...new Set(targetUsers)];
+
+  const targetSlackIds = await mapGitHubUsersToSlack(
+    slackClient,
+    octokit,
+    targetUsers,
+    config
+  );
+
+  if (targetSlackIds.length === 0) {
+    core.warning('Could not find Slack users for any mentioned users');
+    return;
+  }
+
+  const authorSlackId = await mapGitHubUserToSlack(
+    slackClient,
+    octokit,
+    commentData.author,
+    config
+  );
+
+  const message = createCommentMessage(commentData, targetSlackIds, authorSlackId, null);
+  await sendThreadReply(slackClient, slackChannel, threadTs, message);
+
+  core.info(`✅ Comment notification sent to ${targetSlackIds.length} users`);
 }
 
 async function run() {
