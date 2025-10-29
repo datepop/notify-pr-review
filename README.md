@@ -62,14 +62,14 @@ Value: xoxb-your-token-here
 
 ### 3. 사용자 매핑 설정
 
-`src/user-mappings.js` 파일에서 GitHub 사용자명과 이메일을 매핑:
+레포지토리 Settings → Secrets and variables → Actions:
 
-```javascript
-module.exports = {
-  'octocat': 'octocat@company.com',
-  'jaewon': 'jaewon@company.com',
-};
 ```
+Name: USER_MAPPINGS
+Value: {"octocat":"octocat@company.com","jaewon":"jaewon@company.com"}
+```
+
+**중요**: JSON 형식으로 작성 (공백 없이)
 
 ### 4. 설정 파일 생성 (선택사항)
 
@@ -115,11 +115,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Notify Slack
-        uses: datepop/notify-pr-review@v1
+        uses: datepop/notify-pr-review@v1.0.3
         with:
           slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
-          slack_channel: '#pr-reviews'
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          user_mappings: ${{ secrets.USER_MAPPINGS }}
 ```
 
 ## 📖 사용 방법
@@ -129,18 +128,17 @@ jobs:
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `slack_bot_token` | ✅ | - | Slack Bot User OAuth Token |
-| `slack_channel` | ✅ | - | 알림을 받을 Slack 채널 (예: `#pr-reviews`) |
+| `slack_channel` | ❌ | `#개발-코드리뷰` | 알림을 받을 Slack 채널 |
 | `github_token` | ❌ | `${{ github.token }}` | GitHub API 토큰 |
+| `user_mappings` | ❌ | `{}` | GitHub username과 이메일 매핑 (JSON) |
 | `config_path` | ❌ | `.github/pr-notify-config.yml` | 설정 파일 경로 |
 
 ### 사용자 매핑 설정
 
-`src/user-mappings.js` 파일에서 GitHub 사용자명을 이메일로 매핑:
+GitHub Secrets에 USER_MAPPINGS를 JSON 형식으로 설정:
 
-```javascript
-module.exports = {
-  'github-username': 'email@company.com',
-};
+```json
+{"github-username":"email@company.com"}
 ```
 
 ### 설정 파일 옵션
@@ -268,8 +266,7 @@ notify-pr-review/
     ├── config.js         # 설정 파일 로더
     ├── mapper.js         # GitHub ↔ Slack 매핑
     ├── github.js         # PR 데이터 파싱
-    ├── slack.js          # Slack API & Block Kit
-    └── user-mappings.js  # GitHub username → 이메일 매핑
+    └── slack.js          # Slack API & Block Kit
 ```
 
 ## 🤝 기여

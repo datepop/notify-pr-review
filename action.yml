@@ -22,6 +22,9 @@ inputs:
     description: 'Path to config file with email mappings and default reviewers'
     required: false
     default: '.github/pr-notify-config.yml'
+  user_mappings:
+    description: 'JSON string of GitHub username to email mappings (e.g., {"username":"email@company.com"})'
+    required: false
 
 runs:
   using: 'node24'
