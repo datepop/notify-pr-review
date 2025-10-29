@@ -232,6 +232,52 @@ function matchPattern(file, pattern) {
 }
 
 /**
+ * Get team members from GitHub API
+ * @param {Object} octokit - GitHub API client
+ * @param {string} org - Organization name
+ * @param {string} teamSlug - Team slug
+ * @returns {Promise<Array<string>>} Array of team member usernames
+ */
+async function getTeamMembers(octokit, org, teamSlug) {
+  try {
+    const { data: members } = await octokit.rest.teams.listMembersInOrg({
+      org,
+      team_slug: teamSlug
+    });
+
+    const usernames = members.map(member => member.login);
+    core.info(`Team @${org}/${teamSlug} has ${usernames.length} members: ${usernames.join(', ')}`);
+    return usernames;
+  } catch (error) {
+    core.warning(`Failed to get team members for @${org}/${teamSlug}: ${error.message}`);
+    return [];
+  }
+}
+
+/**
+ * Expand owners (individual users and teams) to individual usernames
+ * @param {Object} octokit - GitHub API client
+ * @param {string} repoOwner - Repository owner
+ * @param {Array<string>} owners - Array of owners (may include teams)
+ * @returns {Promise<Array<string>>} Array of individual usernames
+ */
+async function expandOwners(octokit, repoOwner, owners) {
+  const expandedUsers = new Set();
+
+  for (const owner of owners) {
+    if (owner.includes('/')) {
+      const [org, teamSlug] = owner.split('/');
+      const teamMembers = await getTeamMembers(octokit, org, teamSlug);
+      teamMembers.forEach(member => expandedUsers.add(member));
+    } else {
+      expandedUsers.add(owner);
+    }
+  }
+
+  return Array.from(expandedUsers);
+}
+
+/**
  * Get code owners from CODEOWNERS file
  * @param {Object} octokit - GitHub API client
  * @param {string} owner - Repository owner
@@ -289,7 +335,12 @@ async function getCodeOwners(octokit, owner, repo, prNumber) {
       core.info(`Found ${owners.length} code owners from CODEOWNERS: ${owners.join(', ')}`);
     }
 
-    return owners;
+    const expandedOwners = await expandOwners(octokit, owner, owners);
+    if (expandedOwners.length > owners.length) {
+      core.info(`Expanded to ${expandedOwners.length} individual users: ${expandedOwners.join(', ')}`);
+    }
+
+    return expandedOwners;
   } catch (error) {
     core.warning(`Failed to get code owners: ${error.message}`);
     return [];

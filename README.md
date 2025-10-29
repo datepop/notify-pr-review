@@ -10,7 +10,7 @@ GitHub Pull Request 생성 및 코멘트를 Slack 채널에 자동으로 알림�
 - 📧 **이메일 기반 매핑**: GitHub 아이디를 이메일로 매핑하여 Slack 멘션
 - 🔄 **자동 매칭**: GitHub 계정 이메일과 Slack 이메일이 동일하면 자동 매핑
 - 👥 **스마트 리뷰어 결정**: Reviewers → Assignees → CODEOWNERS → Default Reviewers 순으로 자동 결정
-- 📁 **CODEOWNERS 지원**: 변경된 파일의 코드 소유자에게 자동 알림
+- 📁 **CODEOWNERS 지원**: 변경된 파일의 코드 소유자에게 자동 알림 (개인 + 팀)
 - 🎨 **깔끔한 메시지**: Slack Block Kit으로 디자인된 가독성 높은 메시지
 
 ## 📋 요구사항
@@ -204,7 +204,7 @@ PR 알림을 받을 사람은 다음 우선순위로 자동 결정됩니다:
 
 `.github/CODEOWNERS` 파일:
 ```
-# 모든 파일
+# 개인 사용자
 *                    @ok0035 @hemg2
 
 # JavaScript 파일
@@ -215,9 +215,20 @@ PR 알림을 받을 사람은 다음 우선순위로 자동 결정됩니다:
 
 # 백엔드 디렉토리
 /backend/            @yoon-yoo-sang
+
+# 팀 지정 (팀의 모든 멤버에게 알림)
+*                    @datepop/frontend
+/api/                @datepop/backend-team
 ```
 
-`Button.scss` 파일을 수정하면 `@yeodahui`에게 자동 알림이 갑니다.
+**팀 지원**:
+- `@organization/team-name` 형식으로 팀 지정 가능
+- 팀의 모든 멤버가 자동으로 개인 알림 대상이 됨
+- 개인과 팀을 혼합해서 사용 가능
+
+**예시**:
+- `Button.scss` 파일 수정 → `@yeodahui`에게 알림
+- `Button.js` 파일 수정 → `@springkjw`, `@Jh-jaehyuk` + `@datepop/frontend` 팀 전체에게 알림
 
 ## 🔧 고급 설정
 
