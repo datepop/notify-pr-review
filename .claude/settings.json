@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "datepop-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "datepop/.github"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "datepop-review@datepop-plugins": true
+  }
+}
