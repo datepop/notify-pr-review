@@ -8,6 +8,7 @@
     }
   },
   "enabledPlugins": {
-    "datepop-review@datepop-plugins": true
+    "datepop-review@datepop-plugins": true,
+    "datepop-ticket-workflow@datepop-plugins": true
   }
 }
